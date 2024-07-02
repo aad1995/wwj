@@ -43,13 +43,36 @@ class LocalAuth extends BaseAuthStrategy {
     }
 
     async logout() {
-        if (this.userDataDir) {
-            await fs.promises.rm(this.userDataDir, { recursive: true, force: true })
-                .catch((e) => {
-                    throw new Error(e);
-                });
+    try {
+        if (!this.userDataDir) {
+            throw new Error('No user data directory specified.');
         }
+
+        const dirExists = await fs.promises.access(this.userDataDir)
+            .then(() => true)
+            .catch(() => false);
+
+        if (dirExists) {
+            const dirContents = await fs.promises.readdir(this.userDataDir);
+
+            if (dirContents.length > 0) {
+                console.log('Directory ${this.userDataDir} is not empty. Deleting contents...');
+
+                // Delete all files and subdirectories inside userDataDir
+                await Promise.all(dirContents.map(file => fs.promises.rm(path.join(this.userDataDir, file), { recursive: true, force: true })));
+            }
+
+            // Now remove the userDataDir itself
+            await fs.promises.rm(this.userDataDir, { recursive: true, force: true });
+            console.log('Directory ${this.userDataDir} has been removed');
+        } else {
+            console.warn('Directory ${this.userDataDir} does not exist.');
+        }
+    } catch (e) {
+        console.error('Failed to remove directory ${this.userDataDir}:', e);
+        throw new Error(e);
     }
+}
 
 }
 
